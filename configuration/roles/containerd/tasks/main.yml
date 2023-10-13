@@ -1,0 +1,70 @@
+#---
+#- name: Download Containerd
+#  ansible.builtin.get_url:
+#    url: https://github.com/containerd/containerd/releases/download/v1.7.0/containerd-1.7.0-linux-amd64.tar.gz
+#    dest: /home/ubuntu/containerd.tar.gz
+#    mode: '0755'
+#    owner: ubuntu
+#    group: ubuntu
+#
+#- name : Unarchive Containerd
+#  ansible.builtin.unarchive:
+#    src: /home/ubuntu/containerd.tar.gz
+#    dest: /usr/local/
+#    remote_src: yes
+#    mode: 0755
+#
+#- name: Download Containerd Service file
+#  ansible.builtin.get_url:
+#    url: https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+#    dest: /etc/systemd/system/containerd.service
+#    mode: '0755'
+
+- name: Update repositories
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Requirements for containerd
+  ansible.builtin.apt:
+    pkg:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gnupg
+    - lsb-release
+
+- name: Install Containerd
+  ansible.builtin.apt:
+    pkg:
+    - containerd
+
+- name: Create containerd directory
+  file:
+    path: /etc/containerd/
+    state: directory
+
+- name: Copy Containerd config file
+  copy:
+    src: ./templates/config.toml
+    dest: /etc/containerd/config.toml
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Force systemd to reread configs
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable service containerd
+  ansible.builtin.systemd:
+    name: containerd
+    enabled: true
+    masked: no
+
+- name: Make sure containerd unit is running
+  ansible.builtin.systemd:
+    state: restarted
+    name: containerd
+
+- name: Forwarding IPv4 and letting iptables see bridged traffic
+  ansible.builtin.script: ./templates/forwarding.sh

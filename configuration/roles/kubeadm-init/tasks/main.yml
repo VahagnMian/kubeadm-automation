@@ -1,0 +1,17 @@
+- name: Kubeadm init cluster
+  ansible.builtin.shell: kubeadm init --pod-network-cidr="10.244.0.0/16" --apiserver-advertise-address=$(hostname -I)
+
+- name: Generate Join Token
+  ansible.builtin.shell: kubeadm token create > /home/ubuntu/token
+
+- name: Copy aliase kubectl commands
+  copy:
+    src: ./templates/aliases
+    dest: /home/ubuntu/aliases
+    owner: ubuntu
+    group: ubuntu
+    mode: 0755
+
+- name: Add kubectl commands to bashrc
+  shell: cat /home/ubuntu/aliases >> /home/ubuntu/.bashrc
+

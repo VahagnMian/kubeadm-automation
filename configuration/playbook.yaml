@@ -1,0 +1,56 @@
+---
+- hosts: master_nodes,worker_nodes
+  gather_facts: true
+  become: yes
+  roles:
+    - containerd
+    - kubeadm-kubelet
+
+- hosts: master_nodes
+  gather_facts: true
+  become: yes
+  roles:
+    - kubeadm-init
+
+- name: Get init data
+  hosts: master_nodes
+  become: true
+  tasks:
+    - name: Get hostname
+      shell: hostname -I | sed 's/ //g' > /home/ubuntu/hostname && cat /home/ubuntu/hostname
+      register: master_hostname
+    - name: Get token
+      shell: cat /home/ubuntu/token
+      register: token
+    - name: Get discovery-token-ca-cert
+      shell: openssl x509 -in /etc/kubernetes/pki/ca.crt -noout -pubkey | openssl rsa -pubin -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1
+      register: discovery_token_ca_cert
+    - name: "Add K8S Token and Hash to dummy host"
+      add_host:
+        name:   "data_holder"
+        master_hostname: "{{ master_hostname.stdout }}"
+        token:  "{{ token.stdout }}"
+        hash:   "{{ discovery_token_ca_cert.stdout }}"
+
+- name: Join Clusters
+  hosts: worker_nodes
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Join Cluster
+      shell: kubeadm join {{ hostvars['data_holder']['master_hostname'] }}:6443 --token {{ hostvars['data_holder']['token'] }} --discovery-token-ca-cert-hash sha256:{{ hostvars['data_holder']['hash'] }}
+
+- name: Initialize admin config
+  hosts: master_nodes
+  gather_facts: true
+  become: true
+  tasks:
+    - name:
+      shell: mkdir -p /home/ubuntu/.kube && cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config && chown ubuntu:ubuntu /home/ubuntu/.kube/config && chmod 755 /home/ubuntu/.kube/config
+
+- name: Install Flannel
+  hosts: master_nodes
+  gather_facts: true
+  tasks:
+    - name:
+      shell: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml

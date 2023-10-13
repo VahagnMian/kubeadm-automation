@@ -1,0 +1,7 @@
+node1:
+  ansible_user: ubuntu
+  ansible_host: "{{ worker1_ip }}"
+
+node2:
+  ansible_user: ubuntu
+  ansible_host: "{{ worker2_ip }}"
