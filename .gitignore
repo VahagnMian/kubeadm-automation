@@ -3,6 +3,8 @@
 
 .idea
 
+certificates
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
